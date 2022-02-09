@@ -1,10 +1,10 @@
 'use strict'
 
 const svgCaptcha = require('svg-captcha')
+const BaseController = require('./base')
+const fse = require('fs-extra')
 
-const Controller = require('egg').Controller
-
-class UtilController extends Controller {
+class UtilController extends BaseController {
   async captcha() {
     const captcha = svgCaptcha.create({
       size: 4,
@@ -17,6 +17,36 @@ class UtilController extends Controller {
     this.ctx.session.captcha = captcha.text // 把这个值临时存入session，可以随时清空销毁
     this.ctx.response.type = 'image/svg+xml' // 相应的是图片
     this.ctx.body = captcha.data
+  }
+
+  async sendcode() {
+    const { ctx } = this
+    const email = ctx.query.email
+    const code = Math.random().toString().slice(2, 6)
+    console.log('邮箱' + email + '验证码:' + code)
+    ctx.session.emailcode = code
+
+    const subject = '验证码'
+    const text = ''
+    const html = `<h2>小开社区</h2><a href="https://kaikeba.com"><span>${code}</span></a>`
+    const hasSend = await this.service.tools.sendMail(email, subject, text, html) // service需要自己注册 通用的服务需要放在service里面
+    if (hasSend) {
+      this.message('发送成功')
+    } else {
+      this.error('发送失败')
+    }
+  }
+
+  async uploadfile() {
+    // 文件上传1.0
+    // 文件获取到之后直接放置在静态资源的位置下，直接访问即可
+    const { ctx } = this
+    console.log(ctx.request, 'aaaa==>aaaa')
+    const file = ctx.request.files[0]
+    const { name } = ctx.request.body
+    console.log(file, name)
+    await fse.move(file.filepath, this.config.UPLOAD_DIR + '/' + file.filename)
+    this.success({ url: `/public/${file.filename}` })
   }
 }
 
